@@ -564,61 +564,74 @@ where
             ui.add_space(margin.y);
             title_height = ui.min_size().y;
 
-            // First pass: Draw the inner fields. Compute port heights
-            let inputs = self.graph[self.node_id].inputs.clone();
-            for (param_name, param_id) in inputs {
-                if self.graph[param_id].shown_inline {
-                    let height_before = ui.min_rect().bottom();
-                    // NOTE: We want to pass the `user_data` to
-                    // `value_widget`, but we can't since that would require
-                    // borrowing the graph twice. Here, we make the
-                    // assumption that the value is cheaply replaced, and
-                    // use `std::mem::take` to temporarily replace it with a
-                    // dummy value. This requires `ValueType` to implement
-                    // Default, but results in a totally safe alternative.
-                    let mut value = std::mem::take(&mut self.graph[param_id].value);
+            // ui.columns(2, |uis| {
+            //     uis[0].vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    // First pass: Draw the inner fields. Compute port heights
+                    let inputs = self.graph[self.node_id].inputs.clone();
+                    for (param_name, param_id) in inputs {
+                        if self.graph[param_id].shown_inline {
+                            let height_before = ui.min_rect().bottom();
+                            // NOTE: We want to pass the `user_data` to
+                            // `value_widget`, but we can't since that would require
+                            // borrowing the graph twice. Here, we make the
+                            // assumption that the value is cheaply replaced, and
+                            // use `std::mem::take` to temporarily replace it with a
+                            // dummy value. This requires `ValueType` to implement
+                            // Default, but results in a totally safe alternative.
+                            let mut value = std::mem::take(&mut self.graph[param_id].value);
 
-                    if self.graph.connection(param_id).is_some() {
-                        let node_responses = value.value_widget_connected(
-                            &param_name,
-                            self.node_id,
-                            ui,
-                            user_state,
-                            &self.graph[self.node_id].user_data,
-                        );
+                            if self.graph.connection(param_id).is_some() {
+                                let node_responses = value.value_widget_connected(
+                                    &param_name,
+                                    self.node_id,
+                                    ui,
+                                    user_state,
+                                    &self.graph[self.node_id].user_data,
+                                );
 
-                        responses.extend(node_responses.into_iter().map(NodeResponse::User));
-                    } else {
-                        let node_responses = value.value_widget(
-                            &param_name,
-                            self.node_id,
-                            ui,
-                            user_state,
-                            &self.graph[self.node_id].user_data,
-                        );
+                                responses
+                                    .extend(node_responses.into_iter().map(NodeResponse::User));
+                            } else {
+                                let node_responses = value.value_widget(
+                                    &param_name,
+                                    self.node_id,
+                                    ui,
+                                    user_state,
+                                    &self.graph[self.node_id].user_data,
+                                );
 
-                        responses.extend(node_responses.into_iter().map(NodeResponse::User));
+                                responses
+                                    .extend(node_responses.into_iter().map(NodeResponse::User));
+                            }
+
+                            self.graph[param_id].value = value;
+
+                            let height_after = ui.min_rect().bottom();
+                            input_port_heights.push((height_before + height_after) / 2.0);
+                        }
                     }
+                });
 
-                    self.graph[param_id].value = value;
+                ui.separator();
 
-                    let height_after = ui.min_rect().bottom();
-                    input_port_heights.push((height_before + height_after) / 2.0);
-                }
-            }
-
-            let outputs = self.graph[self.node_id].outputs.clone();
-            for (param_name, _param) in outputs {
-                let height_before = ui.min_rect().bottom();
-                responses.extend(
-                    self.graph[self.node_id]
-                        .user_data
-                        .output_ui(ui, self.node_id, self.graph, user_state, &param_name)
-                        .into_iter(),
-                );
-                let height_after = ui.min_rect().bottom();
-                output_port_heights.push((height_before + height_after) / 2.0);
-            }
+                // uis[1].vertical(|ui| {
+                ui.vertical(|ui| {
+                    let outputs = self.graph[self.node_id].outputs.clone();
+                    for (param_name, _param) in outputs {
+                        let height_before = ui.min_rect().bottom();
+                        responses.extend(
+                            self.graph[self.node_id]
+                                .user_data
+                                .output_ui(ui, self.node_id, self.graph, user_state, &param_name)
+                                .into_iter(),
+                        );
+                        let height_after = ui.min_rect().bottom();
+                        output_port_heights.push((height_before + height_after) / 2.0);
+                    }
+                });
+            });
 
             responses.extend(
                 self.graph[self.node_id]
