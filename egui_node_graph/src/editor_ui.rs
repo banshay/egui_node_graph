@@ -44,6 +44,10 @@ pub enum NodeResponse<UserResponse: UserResponseTrait, NodeData: NodeDataTrait> 
         node: NodeId,
         drag_delta: Vec2,
     },
+    NodeSizeChanged {
+        node: NodeId,
+        rect: Rect,
+    },
     User(UserResponse),
 }
 
@@ -115,6 +119,7 @@ where
         // and for a Panel it will fill it completely)
         let editor_rect = ui.max_rect();
         ui.allocate_rect(editor_rect, Sense::hover());
+        self.ui_rect = editor_rect;
 
         let cursor_pos = ui
             .ctx()
@@ -124,7 +129,7 @@ where
 
         // Gets filled with the node metrics as they are drawn
         let mut port_locations = PortLocations::new();
-        let mut node_rects = NodeRects::new();
+        // let mut node_rects = NodeRects::new();
 
         // The responses returned from node drawing have side effects that are best
         // executed at the end of this function.
@@ -161,7 +166,7 @@ where
                 position: self.node_positions.get_mut(node_id).unwrap(),
                 graph: &mut self.graph,
                 port_locations: &mut port_locations,
-                node_rects: &mut node_rects,
+                node_rects: &mut self.node_rects,
                 node_id,
                 ongoing_drag: self.connection_in_progress,
                 selected: self
@@ -358,6 +363,9 @@ where
                         }
                     }
                 }
+                NodeResponse::NodeSizeChanged { node, rect } => {
+                    todo!("implement node size changed")
+                }
                 NodeResponse::User(_) => {
                     // These are handled by the user code.
                 }
@@ -379,7 +387,9 @@ where
                 Stroke::new(3.0, stroke_color),
             );
 
-            self.selected_nodes = node_rects
+            self.selected_nodes = self
+                .node_rects
+                .clone()
                 .into_iter()
                 .filter_map(|(node_id, rect)| {
                     if selection_rect.intersects(rect) {
@@ -405,14 +415,27 @@ where
             self.connection_in_progress = None;
         }
 
-        if mouse.secondary_released() && cursor_in_editor && !cursor_in_finder {
+        if r.dragged() && mouse.secondary_down() {
+            self.total_drag_distance += r.drag_delta().length();
+        }
+
+        if mouse.secondary_released()
+            && cursor_in_editor
+            && !cursor_in_finder
+            && self.total_drag_distance < 3.0
+        {
             self.node_finder = Some(NodeFinder::new_at(cursor_pos));
         }
+
         if ui.ctx().input(|i| i.key_pressed(Key::Escape)) {
             self.node_finder = None;
         }
 
-        if r.dragged() && ui.ctx().input(|i| i.pointer.middle_down()) {
+        if mouse.secondary_released() {
+            self.total_drag_distance = 0.0;
+        }
+
+        if r.dragged() && ui.ctx().input(|i| i.pointer.secondary_down()) {
             self.pan_zoom.pan += ui.ctx().input(|i| i.pointer.delta());
         }
 

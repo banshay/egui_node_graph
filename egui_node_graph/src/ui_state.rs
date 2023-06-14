@@ -1,4 +1,5 @@
 use super::*;
+use egui::{Pos2, Rect, Vec2};
 use std::marker::PhantomData;
 
 #[cfg(feature = "persistence")]
@@ -21,6 +22,7 @@ pub struct GraphEditorState<NodeData, DataType, ValueType, NodeTemplate, UserSta
     /// An ongoing connection interaction: The mouse has dragged away from a
     /// port and the user is holding the click
     pub connection_in_progress: Option<(NodeId, AnyParameterId)>,
+    pub total_drag_distance: f32,
     /// The currently selected node. Some interface actions depend on the
     /// currently selected node.
     pub selected_nodes: Vec<NodeId>,
@@ -28,10 +30,13 @@ pub struct GraphEditorState<NodeData, DataType, ValueType, NodeTemplate, UserSta
     pub ongoing_box_selection: Option<egui::Pos2>,
     /// The position of each node.
     pub node_positions: SecondaryMap<NodeId, egui::Pos2>,
+    /// The bounding boxes of each node
+    pub node_rects: NodeRects,
     /// The node finder is used to create new nodes.
     pub node_finder: Option<NodeFinder<NodeTemplate>>,
     /// The panning of the graph viewport.
     pub pan_zoom: PanZoom,
+    pub ui_rect: Rect,
     pub _user_state: PhantomData<fn() -> UserState>,
 }
 
@@ -56,11 +61,17 @@ impl<NodeData, DataType, ValueType, NodeKind, UserState> Default
             graph: Default::default(),
             node_order: Default::default(),
             connection_in_progress: Default::default(),
+            total_drag_distance: 0.0,
             selected_nodes: Default::default(),
             ongoing_box_selection: Default::default(),
             node_positions: Default::default(),
+            node_rects: NodeRects::new(),
             node_finder: Default::default(),
             pan_zoom: Default::default(),
+            ui_rect: Rect {
+                min: Pos2::ZERO,
+                max: Pos2::ZERO,
+            },
             _user_state: Default::default(),
         }
     }
